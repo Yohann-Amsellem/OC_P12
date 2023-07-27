@@ -34,7 +34,73 @@ private class ContactAPI_Test {
         Test.stopTest();
     }
 
+@IsTest
+static void testCreateContact_ResponseStatusCode200() {
+    // Create a new contact to represent an existing contact with the provided email
+    Contact existingContact = new Contact();
+    existingContact.Email = 'test@example.com'; // Replace with a valid email address
+    existingContact.LastName = 'Doe';
+    insert existingContact;
 
+    // Prepare the request body with the email and lastName parameters
+    Map<String, Object> requestBody = new Map<String, Object>();
+    requestBody.put('email', 'test@example.com'); // Use the same email as the existing contact
+    requestBody.put('lastName', 'Doe');
+
+    // Send the request
+    Test.startTest();
+    RestRequest request = new RestRequest();
+    request.requestUri = '/services/apexrest/contacts/';
+    request.addHeader('Content-Type', 'application/json');
+    request.httpMethod = 'POST';
+    request.requestBody = Blob.valueOf(JSON.serialize(requestBody));
+    RestContext.request = request;
+    RestContext.response = new RestResponse(); // Initialize the RestResponse object
+
+    // Call the API
+    ContactsAPI.createContact('test@example.com', 'Doe');
+
+    // Verify the response status code is 200 for existing contact
+    System.assertEquals(200, RestContext.response.statusCode);
+
+    // Get the response body and verify it contains a Salesforce ID
+    String responseString = RestContext.response.responseBody.toString();
+    System.assertNotEquals(null, responseString, 'Response body should not be null');
+    System.assertNotEquals('', responseString.trim(), 'Response body should not be empty');
+
+    Test.stopTest();
+}
+    
+@IsTest
+static void testCreateContact_ResponseStatusCode400() {
+    // Prepare the request body with an invalid email (missing "@" symbol) and lastName parameters
+    Map<String, Object> requestBody = new Map<String, Object>();
+    requestBody.put('email', 'invalid_email'); // Invalid email without "@" symbol
+    requestBody.put('lastName', 'Doe');
+
+    // Send the request
+    Test.startTest();
+    RestRequest request = new RestRequest();
+    request.requestUri = '/services/apexrest/contacts/';
+    request.addHeader('Content-Type', 'application/json');
+    request.httpMethod = 'POST';
+    request.requestBody = Blob.valueOf(JSON.serialize(requestBody));
+    RestContext.request = request;
+    RestContext.response = new RestResponse(); // Initialize the RestResponse object
+
+    // Call the API
+    ContactsAPI.createContact('invalid_email', 'Doe');
+
+    // Verify the response status code is 400 for invalid email
+    System.assertEquals(400, RestContext.response.statusCode);
+
+    // Get the response body and verify it contains an error message
+    String responseString = RestContext.response.responseBody.toString();
+    System.assert(responseString.contains('Error creating contact'), 'The response should contain an error message.');
+
+    Test.stopTest();
+}    
+    
 @isTest
 static void testUpdateContact() {
     // Create a test contact
@@ -72,6 +138,34 @@ static void testUpdateContact() {
     System.assertEquals(fieldValue, updatedContact.Email, 'Contact email not updated');
 }
     
+    @IsTest
+static void testUpdateContact_ResponseStatusCode400() {
+    // Set a random invalid Contact Id that does not exist in the database
+    Id randomContactId = '00X000000000000'; // Replace with a random 15-character ID
+
+    // Send the request to update the non-existing Contact using the randomContactId
+    Test.startTest();
+    RestRequest request = new RestRequest();
+    request.requestUri = '/services/apexrest/contacts/' + randomContactId;
+    request.addHeader('Content-Type', 'application/json');
+    request.httpMethod = 'PATCH';
+    request.requestBody = Blob.valueOf('{"fieldName": "Email", "fieldValue": "test@example.com"}');
+    RestContext.request = request;
+    RestContext.response = new RestResponse(); // Initialize the RestResponse object
+
+    // Call the API
+    ContactsAPI.updateContact(randomContactId, 'Email', 'test@example.com');
+
+    // Verify the response status code is 400 for the exception case
+    System.assertEquals(400, RestContext.response.statusCode);
+
+    // Get the response body and verify it contains an error message
+    String responseString = RestContext.response.responseBody.toString();
+    System.assert(responseString.contains('Error updating contact:'), 'The response should contain the error message: Error updating contact:');
+
+    Test.stopTest();
+}
+    
     @isTest
     static void testDisableContactAPIsuccess() {
        // Create a test contact
@@ -80,7 +174,7 @@ static void testUpdateContact() {
     
     // Create a test HTTP request
     RestRequest request = new RestRequest();
-    request.requestURI = '/services/apexrest/contacts/' + testContact.Id;
+    request.requestURI = '/services/apexrest/deletion/contacts/' + testContact.Id;
     request.httpMethod = 'PATCH';
     
     // Send the request
